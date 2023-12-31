@@ -102,7 +102,8 @@ async def login_check_user_and_password(username: str, password: str, response: 
         httponly=True,
         max_age=refresh_token_expires.total_seconds(),
         path="/",
-        samesite="None"
+        samesite="None",
+        secure=True
     )
 
     # Return the user and the access token
@@ -169,7 +170,8 @@ async def logout_remove_refresh_token(response: JSONResponse ,refresh_token: str
         httponly=True,
         max_age=0,
         path="/",
-        samesite="None"
+        samesite="None",
+        secure=True
     )
     return {"message": "Logout successful"}
 
