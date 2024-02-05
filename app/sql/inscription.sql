@@ -1,20 +1,34 @@
-DROP TABLE IF EXISTS inscriptions;
+DROP TABLE IF EXISTS inscriptions CASCADE;
 DROP TABLE IF EXISTS csv;
-DROP TABLE IF EXISTS postes;
+DROP TABLE IF EXISTS postes CASCADE;
+DROP TABLE IF EXISTS festivals CASCADE;
+
+CREATE TABLE festivals (
+    festival_id SERIAL PRIMARY KEY,
+    festival_name VARCHAR(255),
+    festival_description VARCHAR(255),
+    is_active BOOLEAN DEFAULT FALSE,
+    UNIQUE (festival_name)
+);
 
 CREATE TABLE inscriptions (
-    user_id INTEGER REFERENCES users(user_id),
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    festival_id INTEGER REFERENCES festivals(festival_id) ON DELETE CASCADE,
     poste VARCHAR(255),
     zone_plan VARCHAR(255),
     zone_benevole_id VARCHAR(255),
     zone_benevole_name VARCHAR(255),
     jour VARCHAR(255),
     creneau VARCHAR(255),
-    is_poste BOOLEAN
+    is_poste BOOLEAN,
+    is_present BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    UNIQUE (user_id, festival_id, poste, zone_plan, zone_benevole_id, zone_benevole_name, jour, creneau, is_poste)
 );
 
 CREATE TABLE csv (
     poste VARCHAR(255) DEFAULT 'Animation',
+    festival_id INTEGER REFERENCES festivals(festival_id) ON DELETE CASCADE,
     jeu_id VARCHAR(255),
     nom_du_jeu VARCHAR(255),
     auteur VARCHAR(255),
@@ -36,13 +50,18 @@ CREATE TABLE csv (
     image_jeu VARCHAR(500),
     logo VARCHAR(500),
     video VARCHAR(255),
-    from_csv BOOLEAN DEFAULT TRUE
+    from_csv BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE postes (
+    festival_id INTEGER REFERENCES festivals(festival_id) ON DELETE CASCADE,
+    poste_id SERIAL PRIMARY KEY,
     poste VARCHAR(255),
     description_poste TEXT,
-    max_capacity INTEGER DEFAULT 10
+    max_capacity INTEGER DEFAULT 10,
+    is_active BOOLEAN DEFAULT TRUE,
+    UNIQUE (festival_id, poste)
 );
 
 
@@ -69,14 +88,14 @@ BEGIN
         jour,
         creneau
     FROM inscriptions
-    WHERE poste = 'Animation' AND is_poste = False
+    WHERE poste = 'Animation' AND is_poste = False AND is_active = True
         AND (zone_plan, zone_benevole_id, zone_benevole_name) NOT IN (
             SELECT 
                 zone_plan,
                 zone_benevole_id,
                 zone_benevole_name
             FROM csv
-            WHERE a_animer = 'oui'
+            WHERE a_animer = 'oui' AND is_active = True
         );
 
     -- Create the new_zones CTE
@@ -90,7 +109,7 @@ BEGIN
 		ROW_NUMBER() OVER(PARTITION BY zone_plan, zone_benevole_id, zone_benevole ORDER BY zone_benevole) as row_nb -- Technically not needed
     FROM csv
     WHERE zone_plan IN (SELECT zone_plan FROM to_changeCTE)
-    AND a_animer = 'oui';
+    AND a_animer = 'oui' AND is_active = True;
 
     -- Iterate through the to_changeCTE result set and perform updates
 	-- Here we are performing an update for each row to be changed
@@ -114,7 +133,8 @@ BEGIN
             AND i.creneau = row_record.creneau
 			AND i.zone_plan = row_record.zone_plan
 			AND i.zone_benevole_id = row_record.zone_benevole_id
-			AND i.zone_benevole_name = row_record.zone_benevole_name;
+			AND i.zone_benevole_name = row_record.zone_benevole_name
+            AND i.is_active = True;
     END LOOP;
 
     -- Drop the temporary tables

@@ -5,7 +5,27 @@ class User(BaseModel):
     username: str
     password: str
     email: str
-    name: str | None = None
+    telephone: str
+    nom: str
+    prenom: str
+    tshirt: str
+    vegan: bool
+    hebergement: str
+    association: str
     roles: list[str] = []
     disabled: bool | None = None
+    
+class UpdateUser(BaseModel):
+    username: str
+    email: str
+    telephone: str
+    nom: str
+    prenom: str
+    tshirt: str
+    vegan: bool
+    hebergement: str
+    association: str
+    
 
+class Password(BaseModel):
+    password: str

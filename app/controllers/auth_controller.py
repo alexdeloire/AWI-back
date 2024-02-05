@@ -22,6 +22,10 @@ from ..controllers.user_controller import find_user_by_username, find_user_by_em
 from ..models.user import User
 from ..models.auth import UserAndToken, TokenData
 
+# import smtplib
+# from email.mime.multipart import MIMEMultipart
+# from email.mime.text import MIMEText
+
 
 # GLOBAL VARIABLES
 
@@ -29,7 +33,7 @@ from ..models.auth import UserAndToken, TokenData
 # openssl rand -hex 32
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = 5
+ACCESS_TOKEN_EXPIRE_MINUTES = 50
 
 
 
@@ -59,6 +63,7 @@ async def authenticate_user(username: str, password: str):
         return False
     if not verify_password(password, user.password):
         return False
+    user.password = ""
     return user
 
 
@@ -107,7 +112,7 @@ async def login_check_user_and_password(username: str, password: str, response: 
     )
 
     # Return the user and the access token
-    payload = UserAndToken(username=user.username, roles=user.roles, access_token=access_token, token_type="bearer")
+    payload = UserAndToken(user_id=user.user_id, username=user.username, roles=user.roles, access_token=access_token, token_type="bearer")
 
     return payload
 
@@ -150,7 +155,7 @@ async def check_refresh_token_and_create_access_token(refresh_token: str | None 
     )
 
     # Return the user and the access token
-    payload = UserAndToken(username=user.username, roles=user.roles, access_token=access_token, token_type="bearer")
+    payload = UserAndToken(user_id=user.user_id, username=user.username, roles=user.roles, access_token=access_token, token_type="bearer")
     
     return payload
 
@@ -252,18 +257,55 @@ async def does_email_exist(email: str):
     return True
 
 
-async def register_user(username: str, email: str, password: str):
+async def register_user(user: User):
     # Check if user already exists
-    user_exists = await does_user_exist(username)
+    user_exists = await does_user_exist(user.username)
     if user_exists:
         return JSONResponse(content={"message": "Username already exists"}, status_code=409)
     # Check if email already exists
-    email_exists = await does_email_exist(email)
+    email_exists = await does_email_exist(user.email)
     if email_exists:
         return JSONResponse(content={"message": "Email already exists"}, status_code=409)
     # Hash the password
-    hashed_password = get_password_hash(password)
-    user = User(username=username, email=email, password=hashed_password, name=username, roles=["User", "Referent", "Admin", "Super"], disabled=False)
+    hashed_password = get_password_hash(user.password)
+    user = User(
+        username=user.username,
+        email=user.email,
+        telephone=user.telephone,
+        password=hashed_password,
+        prenom=user.prenom,
+        nom=user.nom,
+        tshirt=user.tshirt,
+        vegan=user.vegan,
+        hebergement=user.hebergement,
+        association=user.association,
+        roles=["User"],
+        disabled=False
+    )
     # Create the user in the database
     payload = await create_user(user)
     return payload
+
+
+# def send_email(subject, body, to_email, smtp_server, smtp_port, sender_email, sender_password):
+#     # Set up the MIME
+#     message = MIMEMultipart()
+#     message['From'] = sender_email
+#     message['To'] = to_email
+#     message['Subject'] = subject
+
+#     # Attach the body of the email
+#     message.attach(MIMEText(body, 'plain'))
+
+#     # Connect to the SMTP server
+#     server = smtplib.SMTP(smtp_server, smtp_port)
+
+#     # Log in to the email account
+#     server.starttls()  # Use this line if your server requires a secure connection
+#     server.login(sender_email, sender_password)
+
+#     # Send the email
+#     server.sendmail(sender_email, to_email, message.as_string())
+
+#     # Quit the server
+#     server.quit()
