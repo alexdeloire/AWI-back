@@ -47,20 +47,25 @@ async def get_referents_for_poste(festival_id: int, poste: str):
     
         query = """
         SELECT 
-                ARRAY_AGG(users.user_id) as user_ids,
-                ARRAY_AGG(users.username) as usernames,
+                ARRAY_AGG(users.user_id) AS user_ids,
+                ARRAY_AGG(users.username) AS usernames,
                 postes.poste_id,
-                postes.poste,
-                postes.description_poste,
-                postes.max_capacity
-        FROM users
-        JOIN referents ON users.user_id = referents.user_id
-        JOIN postes ON referents.poste_id = postes.poste_id
-        WHERE postes.festival_id = $1 AND referents.festival_id = $2 AND postes.poste = $3
-	GROUP BY postes.poste, postes.poste_id, postes.description_poste, postes.max_capacity;"""
-    
-        result = await db.fetch_rows(query, festival_id, festival_id, poste)
+                        postes.poste,
+                        postes.description_poste,
+                        postes.max_capacity
+        FROM postes
+        LEFT JOIN referents ON postes.poste_id = referents.poste_id
+        LEFT JOIN users ON referents.user_id = users.user_id
+        WHERE postes.festival_id = $1 AND postes.poste = $2
+        GROUP BY postes.poste_id;"""
+        
+        result = await db.fetch_rows(query, festival_id, poste)
         
         result = [dict(row) for row in result]
         
+        #If user_ids is None, return an empty list
+        if result[0]['user_ids'] == [None]:
+            result[0]['user_ids'] = []
+            result[0]['usernames'] = []
+    
         return result
